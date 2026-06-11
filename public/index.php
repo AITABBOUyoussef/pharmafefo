@@ -1,7 +1,5 @@
 <?php
-// public/index.php
 
-// Chargement manuel des classes (En attendant Composer/Autoload)
 require_once '../config/database.php';
 require_once '../src/Entity/Batch.php';
 require_once '../src/Repository/BatchRepository.php';
