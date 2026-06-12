@@ -6,16 +6,12 @@ use PDO;
 class BatchRepository {
     private $conn;
 
-    // L'injection de dépendance: on lui donne la connexion PDO f l'constructeur
     public function __construct($db) {
         $this->conn = $db;
     }
 
-    /**
-     * Récupère tous les lots actifs avec leur niveau d'alerte
-     */
+   
     public function getLotsWithCriticality() {
-        // La requête SQL avec DATEDIFF pour calculer le nombre de jours restants
         $query = "
             SELECT 
                 b.id,
@@ -24,7 +20,8 @@ class BatchRepository {
                 b.qty_available,
                 p.designation AS product_name,
                 DATEDIFF(b.expiration_date, CURDATE()) AS days_to_expire
-            FROM batches b
+            FROM batches b 
+            
             JOIN products p ON b.product_id = p.id
             WHERE b.status = 'ACTIVE'
             ORDER BY days_to_expire ASC
@@ -34,7 +31,6 @@ class BatchRepository {
         $stmt->execute();
         $lots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Application de la logique métier (Épic 2) pour les couleurs
         foreach ($lots as &$lot) {
             $days = (int)$lot['days_to_expire'];
             
@@ -50,7 +46,7 @@ class BatchRepository {
             }
         }
 
-        return $lots; // Kayrje3 lina tableau wajed fih kolchi
+        return $lots;
     }
 }
 ?>

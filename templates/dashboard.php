@@ -50,7 +50,6 @@
                             <?php foreach ($lots as $lot): ?>
                                 
                                 <?php
-                                    // Logique dyal l'affichage des couleurs selon la criticité
                                     $bgColor = '';
                                     $textColor = '';
                                     $dotColor = '';
