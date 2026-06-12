@@ -1,65 +1,42 @@
 <?php
 namespace PharmaFEFO\Controller;
 
-
-
-use PharmaFEFO\Config\database;
+use PharmaFEFO\Config\Database;
 use PharmaFEFO\Repository\BatchRepository;
 
 class StockController {
-    
-   
- public function saveBatch() {
-        
-         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            
-            $product_id = $_POST['product_id'];
-            $batch_number = $_POST['batch_number'];
-            $quantity = $_POST['quantity'];
-            $expiration_date = $_POST['expiration_date'];
-
-             if ($quantity <= 0) {
-                echo "Erreur : La quantité khassha tkoun kber mn 0.";
-                return;
-            }
-
+    public function saveBatch() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $database = new Database();
             $db = $database->getConnection();
             $batchRepo = new BatchRepository($db);
 
-            $result = $batchRepo->addBatch($product_id, $batch_number, $quantity, $expiration_date);
+            $result = $batchRepo->addBatch(
+                $_POST['product_id'], 
+                $_POST['batch_number'], 
+                $_POST['quantity'], 
+                $_POST['expiration_date'],
+                $_SESSION['user_id'] // L'utilisateur connecté
+            );
 
-            if ($result) {
-                
-        header("Location: index.php?success=1");
-                exit();
-            } else {
-                echo "Erreur f l'enregistrement f la base de données.";
-            }
+            header("Location: index.php?action=dashboard" . ($result ? "&success=entry" : "&error=entry"));
+            exit();
         }
     }
 
-     public function exitStock() {
+    public function exitStock() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            
-            $product_id = $_POST['product_id'];
-            $quantity = $_POST['quantity'];
-
-               if ($quantity <= 0) {
-                header("Location: index.php?action=dashboard&error=qty_invalid");
-                exit();
-            }
-
-            $database = new \PharmaFEFO\Config\Database();
+            $database = new Database();
             $db = $database->getConnection();
-            $batchRepo = new \PharmaFEFO\Repository\BatchRepository($db);
-           $result = $batchRepo->exitStockWithFEFO($product_id, $quantity);
+            $batchRepo = new BatchRepository($db);
 
-             if ($result) {
-                header("Location: index.php?action=dashboard&success=exit_ok");
-            } else {
-                header("Location: index.php?action=dashboard&error=stock_insuffisant");
-            }
+            $result = $batchRepo->exitStockWithFEFO(
+                $_POST['product_id'], 
+                $_POST['quantity'],
+                $_SESSION['user_id'] // L'utilisateur connecté
+            );
+
+            header("Location: index.php?action=dashboard" . ($result ? "&success=exit" : "&error=insufficient_stock"));
             exit();
         }
     }
