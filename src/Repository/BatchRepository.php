@@ -48,33 +48,25 @@ class BatchRepository {
 
         return $lots;
     }
-    /**
-     * Ajoute un nouveau lot et enregistre le mouvement de stock
-     */
+    
     public function addBatch($product_id, $batch_number, $quantity, $expiration_date) {
         try {
-            // 1. Kanbdaw la transaction (kima chre7na: ya kolchi ydoz ya walo)
             $this->conn->beginTransaction();
 
-            // 2. Requête 1 : Nzidou l'Lot jdid f la table 'batches'
             $queryBatch = "INSERT INTO batches (product_id, batch_number, expiration_date, qty_received, qty_available, status) 
                            VALUES (:product_id, :batch_number, :expiration_date, :quantity, :quantity, 'ACTIVE')";
             
             $stmtBatch = $this->conn->prepare($queryBatch);
             
-            // Kan-associer les variables m3a les paramètres dyal la requête (Sécurité contre SQL Injection)
-            $stmtBatch->bindParam(':product_id', $product_id);
+             $stmtBatch->bindParam(':product_id', $product_id);
             $stmtBatch->bindParam(':batch_number', $batch_number);
             $stmtBatch->bindParam(':expiration_date', $expiration_date);
-            $stmtBatch->bindParam(':quantity', $quantity); // qty_received
+            $stmtBatch->bindParam(':quantity', $quantity);
             
             $stmtBatch->execute();
 
-            // Kanjebdo l'ID dyal l'Lot li yalah tzad bach nkhdmo bih f l'historique
-            $newBatchId = $this->conn->lastInsertId();
+             $newBatchId = $this->conn->lastInsertId();
 
-            // 3. Requête 2 : Nqiyydou had l'entrée f l'historique 'stock_movements'
-            // NB: Derna user_id = 1 ghir f l'exemple 7it mazal masawbnach système de Login
             $queryMovement = "INSERT INTO stock_movements (batch_id, user_id, type, quantity, note) 
                               VALUES (:batch_id, 1, 'ENTRY', :quantity, 'Réception de nouveau lot')";
             
@@ -84,17 +76,78 @@ class BatchRepository {
             
             $stmtMovement->execute();
 
-            // 4. Ila kolchi daz bikhir, kan-validiw (Sauvegarder)
             $this->conn->commit();
             
             return true;
 
         } catch (\PDOException $e) {
-            // 5. Ila w9e3at chi erreur, kan-annuliw kolchi bach tb9a la base de données nqiya
             $this->conn->rollBack();
             
-            // Tqder tbiyen l'erreur l'developer awla tsjjelha f fichier log
             echo "Erreur d'insertion : " . $e->getMessage();
+            return false;
+        }
+    }
+
+ 
+    public function exitStockWithFEFO($product_id, $quantity_requested) {
+        try {
+            $this->conn->beginTransaction();
+
+            $query = "SELECT id, qty_available 
+                      FROM batches 
+                      WHERE product_id = :pid AND qty_available > 0 AND status = 'ACTIVE' 
+                      ORDER BY expiration_date ASC 
+                      FOR UPDATE";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':pid', $product_id);
+            $stmt->execute();
+            $lots = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            $remaining_qty = $quantity_requested; 
+
+             foreach ($lots as $lot) {
+                if ($remaining_qty <= 0) {
+                    break;
+                }
+
+                $qty_taken = 0; 
+
+                if ($lot['qty_available'] <= $remaining_qty) {
+                     $qty_taken = $lot['qty_available'];
+                    $remaining_qty -= $qty_taken;
+                    
+                    $updateStmt = $this->conn->prepare("UPDATE batches SET qty_available = 0, status = 'EMPTY' WHERE id = :id");
+                    $updateStmt->bindParam(':id', $lot['id']);
+                    $updateStmt->execute();
+
+                } else {
+                    $qty_taken = $remaining_qty;
+                    $remaining_qty = 0; // Salina jmi3
+                    
+                    $updateStmt = $this->conn->prepare("UPDATE batches SET qty_available = qty_available - :qty WHERE id = :id");
+                    $updateStmt->bindParam(':qty', $qty_taken);
+                    $updateStmt->bindParam(':id', $lot['id']);
+                    $updateStmt->execute();
+                }
+
+                 $movStmt = $this->conn->prepare("INSERT INTO stock_movements (batch_id, user_id, type, quantity, note) 
+                                                 VALUES (:batch_id, 1, 'EXIT', :qty, 'Sortie automatique FEFO')");
+                $movStmt->bindParam(':batch_id', $lot['id']);
+                $movStmt->bindParam(':qty', $qty_taken);
+                $movStmt->execute();
+            }
+
+            if ($remaining_qty > 0) {
+                $this->conn->rollBack(); 
+                return false;
+            }
+
+             $this->conn->commit();
+            return true;
+
+        } catch (\PDOException $e) {
+            $this->conn->rollBack();
             return false;
         }
     }
