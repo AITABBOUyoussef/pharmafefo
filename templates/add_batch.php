@@ -1,3 +1,11 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaFEFO - Tableau de Bord</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
 <div class="bg-white p-8 rounded-lg shadow-md max-w-md mx-auto mt-10 border border-gray-200">
     <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Nouvelle Entrée en Stock</h2>
     
