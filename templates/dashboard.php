@@ -8,6 +8,7 @@
 <body class="bg-gray-50 flex h-screen overflow-hidden">
     <aside class="w-64 bg-slate-900 text-gray-300 flex flex-col shadow-xl z-20">
         <div class="h-16 flex items-center px-6 border-b border-slate-800">
+       
             <span class="text-xl font-bold text-white">⚕️ PharmaFEFO</span>
         </div>
         <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/50">
@@ -21,8 +22,9 @@
                 </div>
             </div>
         </div>
-        <nav class="flex-1 px-4 py-6 space-y-2">
-            <a href="index.php?action=dashboard" class="block px-3 py-2 bg-slate-800 text-white rounded-md">Tableau de Bord</a>
+       <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="index.php?action=dashboard" class="block px-3 py-2 bg-slate-800 text-white rounded-md font-medium shadow-sm">Tableau de Bord</a>
+            <a href="index.php?action=history" class="block px-3 py-2 hover:bg-slate-800 text-gray-300 rounded-md transition-colors">Entrées & Sorties</a>
         </nav>
         <div class="p-4 border-t border-slate-800">
             <a href="index.php?action=logout" class="block w-full text-center px-4 py-2 text-sm text-red-400 border border-red-900 rounded">Se déconnecter</a>
@@ -98,14 +100,23 @@
             </form>
         </div>
 
-        <div id="modalSortie" class="hidden absolute inset-0 bg-black/50 flex justify-center items-center z-50 backdrop-blur-sm">
+      <div id="modalSortie" class="hidden absolute inset-0 bg-black/50 flex justify-center items-center z-50 backdrop-blur-sm">
             <form action="index.php?action=exit_stock" method="POST" class="bg-white p-6 rounded-lg shadow-xl w-96">
                 <h3 class="text-lg font-bold mb-4">Sortie FEFO</h3>
+                
                 <select name="product_id" class="w-full border p-2 mb-3 rounded" required>
-                    <option value="1">Doliprane 1000mg</option>
-                    <option value="2">Amoxicilline 500mg</option>
+                    <option value="">Sélectionnez un médicament...</option>
+                    <?php foreach ($products as $product): ?>
+                        <option value="<?= htmlspecialchars($product['id']) ?>">
+                            <?= htmlspecialchars($product['designation']) ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
-                <input type="number" name="quantity" placeholder="Quantité à sortir" class="w-full border p-2 mb-4 rounded" required>
+                
+                <input type="number" name="quantity" placeholder="Quantité à sortir" min="1" class="w-full border p-2 mb-3 rounded" required>
+                
+                <input type="text" name="note" placeholder="Motif (ex: Vente, Ordonnance...)" class="w-full border p-2 mb-4 rounded focus:ring-2 focus:ring-orange-500 outline-none">
+                
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="document.getElementById('modalSortie').classList.add('hidden')" class="bg-gray-200 px-4 py-2 rounded">Annuler</button>
                     <button type="submit" class="bg-orange-500 text-white px-4 py-2 rounded">Valider Sortie</button>

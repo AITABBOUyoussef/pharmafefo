@@ -3,17 +3,18 @@ namespace PharmaFEFO\Controller;
 
 use PharmaFEFO\Config\Database;
 use PharmaFEFO\Repository\BatchRepository;
-
+use PharmaFEFO\Repository\ProductRepository; 
 class DashboardController {
     public function index() {
         $database = new Database();
         $db = $database->getConnection();
+        
         $batchRepo = new BatchRepository($db);
+        $productRepo = new ProductRepository($db); 
 
         $rawLots = $batchRepo->getAllActiveLots();
         $lots = [];
 
-        // Traitement des couleurs (Criticité)
         foreach ($rawLots as $lot) {
             $days = $lot['days_to_expire'];
             if ($days <= 30) {
@@ -28,6 +29,8 @@ class DashboardController {
             }
             $lots[] = $lot;
         }
+
+         $products = $productRepo->getAllProducts();
 
         require_once '../templates/dashboard.php';
     }

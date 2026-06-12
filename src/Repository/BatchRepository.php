@@ -8,7 +8,6 @@ class BatchRepository {
         $this->conn = $db;
     }
 
-    // 1. Njebdo les lots lel Dashboard
     public function getAllActiveLots() {
         $query = "SELECT b.id, b.batch_number, b.expiration_date, b.qty_available, p.designation as product_name,
                   DATEDIFF(b.expiration_date, CURDATE()) as days_to_expire
@@ -21,7 +20,6 @@ class BatchRepository {
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
-    // 2. Entrée de Stock
     public function addBatch($product_id, $batch_number, $quantity, $expiration_date, $user_id) {
         try {
             $this->conn->beginTransaction();
@@ -53,8 +51,7 @@ class BatchRepository {
         }
     }
 
-    // 3. Sortie de Stock (La règle FEFO)
-    public function exitStockWithFEFO($product_id, $quantity_requested, $user_id) {
+    public function exitStockWithFEFO($product_id, $quantity_requested, $user_id, $note) {
         try {
             $this->conn->beginTransaction();
 
@@ -89,17 +86,18 @@ class BatchRepository {
                     $updStmt->execute();
                 }
 
-                $movStmt = $this->conn->prepare("INSERT INTO stock_movements (batch_id, user_id, type, quantity, note) 
-                                                 VALUES (:batch_id, :user_id, 'EXIT', :qty, 'Sortie automatique FEFO')");
+                 $movStmt = $this->conn->prepare("INSERT INTO stock_movements (batch_id, user_id, type, quantity, note) 
+                                                 VALUES (:batch_id, :user_id, 'EXIT', :qty, :note)");
                 $movStmt->bindParam(':batch_id', $lot['id']);
                 $movStmt->bindParam(':user_id', $user_id);
                 $movStmt->bindParam(':qty', $qty_taken);
+                $movStmt->bindParam(':note', $note); 
                 $movStmt->execute();
             }
 
             if ($remaining_qty > 0) {
                 $this->conn->rollBack();
-                return false; // Stock insuffisant
+                return false; 
             }
 
             $this->conn->commit();
