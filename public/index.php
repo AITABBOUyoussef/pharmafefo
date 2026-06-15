@@ -1,6 +1,10 @@
 <?php
 session_start(); 
+// 1. Charger l'environnement
+require_once '../config/environment.php';
+\PharmaFEFO\Config\Environment::load(__DIR__ . '/../.env');
 
+require_once '../config/Database.php';
 require_once '../config/Database.php';
 require_once '../src/Repository/UserRepository.php';
 require_once '../src/Repository/BatchRepository.php';
