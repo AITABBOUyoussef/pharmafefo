@@ -1,6 +1,5 @@
 <?php
-namespace PharmaFEFO\Controller;
-
+namespace PharmaFEFO\Controller\Web;
 use PharmaFEFO\Config\Database;
 use PharmaFEFO\Repository\BatchRepository;
 use PharmaFEFO\Repository\ProductRepository; 
