@@ -5,10 +5,10 @@ use PDO;
 use PDOException;
 
 class Database {
-    private $host = "localhost";
-    private $db_name = "pharmafefo";
-    private $username = "root";
-    private $password = "";    
+   private $host = "sql113.byetcluster.com"; 
+    private $db_name = "if0_42229521_pharmafefo"; 
+    private $username = "if0_42229521";
+    private $password = "2MlJEtB72MukDhf";  
     public $conn;
 
     public function getConnection() {
@@ -22,11 +22,10 @@ class Database {
             );
             
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            
-             $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
             
         } catch(PDOException $exception) {
-            echo "Erreur de connexion à la base de données : " . $exception->getMessage();
+             die("Erreur de connexion à la base de données. Veuillez réessayer plus tard.");
         }
 
         return $this->conn;

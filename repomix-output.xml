@@ -1,0 +1,978 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.htaccess
+config/database.php
+pharmafefo_db.sql
+public/index.php
+README.md
+src/Controller/AuthController.php
+src/Controller/DashboardController.php
+src/Controller/HistoryController.php
+src/Controller/StockController.php
+src/Entity/Batch.php
+src/Entity/Product.php
+src/Entity/StockBatch.php
+src/Repository/BatchRepository.php
+src/Repository/MovementRepository.php
+src/Repository/ProductRepository.php
+src/Repository/UserRepository.php
+templates/add_batch.php
+templates/dashboard.php
+templates/history.php
+templates/login.php
+templates/stock_entry.php
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".htaccess">
+RewriteEngine On
+RewriteRule ^$ public/ [L]
+RewriteRule (.*) public/$1 [L]
+</file>
+
+<file path="pharmafefo_db.sql">
+-- Création de la base de données
+CREATE DATABASE IF NOT EXISTS pharmafefo;
+USE pharmafefo;
+
+-- 1. Table USERS (Utilisateurs)
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('PREPARATEUR', 'PHARMACIEN', 'ADMINISTRATEUR') NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2. Table PRODUCTS (Médicaments)
+CREATE TABLE products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cip_code VARCHAR(50) NOT NULL UNIQUE,
+    designation VARCHAR(150) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    min_stock_alert INT DEFAULT 10,
+    unit VARCHAR(20) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Table BATCHES (Lots de Stock)
+CREATE TABLE batches (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    batch_number VARCHAR(50) NOT NULL,
+    expiration_date DATE NOT NULL,
+    qty_received INT NOT NULL,
+    qty_available INT NOT NULL,
+    status ENUM('ACTIVE', 'EXPIRED', 'RETURNED', 'DESTROYED') DEFAULT 'ACTIVE',
+    CONSTRAINT fk_batch_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. Table STOCK_MOVEMENTS (Traçabilité des mouvements)
+CREATE TABLE stock_movements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    batch_id INT NOT NULL,
+    user_id INT NOT NULL,
+    type ENUM('ENTRY', 'EXIT', 'RETURN', 'DESTRUCTION') NOT NULL,
+    quantity INT NOT NULL,
+    movement_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    note TEXT,
+    CONSTRAINT fk_movement_batch FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE,
+    CONSTRAINT fk_movement_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. Table NOTIFICATIONS (Alertes de péremption)
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    message TEXT NOT NULL,
+    level ENUM('GREEN', 'ORANGE', 'RED') NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_read BOOLEAN DEFAULT FALSE,
+    CONSTRAINT fk_notification_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =========================================================
+-- JEU DE DONNÉES DE TEST (POUR COMMENCER DIRECTEMENT)
+-- =========================================================
+
+-- Insertion d'un Administrateur par défaut (Mot de passe: admin123)
+-- NB: Le mot de passe ici est hashé avec BCRYPT pour PHP (password_hash)
+INSERT INTO users (name, email, password, role) 
+VALUES ('Admin Pharma', 'admin@pharmafefo.ma', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ADMINISTRATEUR');
+
+-- Insertion de quelques produits
+INSERT INTO products (cip_code, designation, price, min_stock_alert, unit) VALUES 
+('CIP-1001', 'Doliprane 1000mg', 15.50, 20, 'Boîte'),
+('CIP-1002', 'Amoxicilline 500mg', 35.00, 15, 'Boîte'),
+('CIP-1003', 'Spasfon', 22.00, 10, 'Boîte');
+
+-- Insertion de lots avec différentes dates de péremption pour tester le Dashboard
+INSERT INTO batches (product_id, batch_number, expiration_date, qty_received, qty_available, status) VALUES 
+(1, 'LOT-8475', DATE_ADD(CURDATE(), INTERVAL 15 DAY), 50, 20, 'ACTIVE'), -- Alerte Rouge (< 30 jrs)
+(2, 'LOT-1120', DATE_ADD(CURDATE(), INTERVAL 60 DAY), 100, 80, 'ACTIVE'), -- Alerte Orange (< 90 jrs)
+(3, 'LOT-9988', DATE_ADD(CURDATE(), INTERVAL 200 DAY), 40, 40, 'ACTIVE'); -- Alerte Verte (> 6 mois)
+</file>
+
+<file path="src/Controller/HistoryController.php">
+<?php
+namespace PharmaFEFO\Controller;
+
+use PharmaFEFO\Config\Database;
+use PharmaFEFO\Repository\MovementRepository;
+
+class HistoryController {
+    
+    public function index() {
+         $database = new Database();
+        $db = $database->getConnection();
+        
+        $movementRepo = new MovementRepository($db);
+        
+        $movements = $movementRepo->getAllMovements();
+        
+        require_once '../templates/history.php';
+    }
+}
+?>
+</file>
+
+<file path="src/Entity/Product.php">
+<?php
+namespace PharmaFEFO\Entity;
+
+class Product {
+    // Objet métier PHP pur (Encapsulation)
+}
+</file>
+
+<file path="src/Entity/StockBatch.php">
+<?php
+namespace PharmaFEFO\Entity;
+
+class StockBatch {
+    // Lot de stock avec DLU
+}
+</file>
+
+<file path="src/Repository/MovementRepository.php">
+<?php
+namespace PharmaFEFO\Repository;
+
+class MovementRepository {
+    private $conn;
+
+    public function __construct($db) {
+        $this->conn = $db;
+    }
+
+    public function getAllMovements() {
+        $query = "SELECT 
+                    m.type, 
+                    m.quantity, 
+                    m.movement_date, 
+                    m.note,
+                    u.name AS user_name,
+                    b.batch_number,
+                    p.designation AS product_name
+                  FROM stock_movements m
+                  JOIN users u ON m.user_id = u.id
+                  JOIN batches b ON m.batch_id = b.id
+                  JOIN products p ON b.product_id = p.id
+                  ORDER BY m.movement_date DESC";
+                  
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+}
+?>
+</file>
+
+<file path="src/Repository/ProductRepository.php">
+<?php
+namespace PharmaFEFO\Repository;
+
+class ProductRepository {
+    private $conn;
+
+    public function __construct($db) {
+        $this->conn = $db;
+    }
+
+    public function getAllProducts() {
+        $query = "SELECT id, designation FROM products ORDER BY designation ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+}
+?>
+</file>
+
+<file path="templates/history.php">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>PharmaFEFO - Historique des Mouvements</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 flex h-screen overflow-hidden antialiased font-sans">
+
+    <aside class="w-64 bg-slate-900 text-gray-300 flex flex-col shadow-xl z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800">
+            <span class="text-xl font-bold text-white">⚕️ PharmaFEFO</span>
+        </div>
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/50">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                    <?= substr($_SESSION['user_name'] ?? 'U', 0, 1) ?>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-white"><?= htmlspecialchars($_SESSION['user_name'] ?? 'Utilisateur') ?></p>
+                    <p class="text-xs text-blue-400"><?= htmlspecialchars($_SESSION['user_role'] ?? '') ?></p>
+                </div>
+            </div>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="index.php?action=dashboard" class="block px-3 py-2 hover:bg-slate-800 text-gray-300 rounded-md transition-colors">Tableau de Bord</a>
+            <a href="index.php?action=history" class="block px-3 py-2 bg-slate-800 text-white rounded-md font-medium shadow-sm">Entrées & Sorties</a>
+        </nav>
+        <div class="p-4 border-t border-slate-800">
+            <a href="index.php?action=logout" class="block w-full text-center px-4 py-2 text-sm text-red-400 border border-red-900 rounded hover:bg-red-500 hover:text-white transition-colors">Se déconnecter</a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        <header class="h-16 bg-white shadow-sm flex items-center px-8 border-b border-gray-200 z-10">
+            <h1 class="text-2xl font-semibold text-gray-800">Historique des Mouvements (Traçabilité)</h1>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-8 z-0">
+            <div class="bg-white rounded-lg shadow border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase tracking-wider text-xs">
+                        <tr>
+                            <th class="px-6 py-3 text-left font-medium">Date & Heure</th>
+                            <th class="px-6 py-3 text-left font-medium">Utilisateur</th>
+                            <th class="px-6 py-3 text-left font-medium">Type</th>
+                            <th class="px-6 py-3 text-left font-medium">Médicament</th>
+                            <th class="px-6 py-3 text-left font-medium">N° Lot</th>
+                            <th class="px-6 py-3 text-left font-medium">Quantité</th>
+                            <th class="px-6 py-3 text-left font-medium">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <?php if (empty($movements)): ?>
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-gray-500 font-medium">Aucun mouvement enregistré pour le moment.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($movements as $mov): ?>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-4 text-gray-600 font-medium"><?= date('d/m/Y H:i', strtotime($mov['movement_date'])) ?></td>
+                                    <td class="px-6 py-4 text-gray-800 font-semibold"><?= htmlspecialchars($mov['user_name']) ?></td>
+                                    <td class="px-6 py-4">
+                                        <?php if ($mov['type'] === 'ENTRY'): ?>
+                                            <span class="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">ENTRÉE</span>
+                                        <?php else: ?>
+                                            <span class="px-2.5 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded-full">SORTIE</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-900 font-medium"><?= htmlspecialchars($mov['product_name']) ?></td>
+                                    <td class="px-6 py-4 text-gray-500"><?= htmlspecialchars($mov['batch_number']) ?></td>
+                                    <td class="px-6 py-4 text-gray-900 font-bold"><?= htmlspecialchars($mov['quantity']) ?></td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs"><?= htmlspecialchars($mov['note']) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
+</file>
+
+<file path="templates/login.php">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaFEFO - Connexion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 flex items-center justify-center h-screen antialiased font-sans">
+
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-slate-800 tracking-wider mb-1">⚕️ PharmaFEFO</h1>
+            <p class="text-sm text-gray-500">Gestion Intelligente de Stock</p>
+        </div>
+
+        <?php if (isset($_GET['error']) && $_GET['error'] == 'invalid_credentials'): ?>
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm text-center">
+                Email ou mot de passe incorrect.
+            </div>
+        <?php endif; ?>
+
+        <form action="index.php?action=login_process" method="POST">
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="email">Adresse Email</label>
+                <input type="email" id="email" name="email" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" placeholder="pharmacien@pharmafefo.com" required>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">Mot de passe</label>
+                <input type="password" id="password" name="password" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-lg transition duration-200">
+                Se Connecter
+            </button>
+            
+        </form>
+
+    </div>
+
+</body>
+</html>
+</file>
+
+<file path="templates/stock_entry.php">
+<!-- Formulaire d'entrée de stock -->
+<h1>Entrée de Stock</h1>
+</file>
+
+<file path="src/Controller/AuthController.php">
+<?php
+namespace PharmaFEFO\Controller;
+
+use PharmaFEFO\Config\Database;
+use PharmaFEFO\Repository\UserRepository;
+
+class AuthController {
+    
+    public function loginProcess() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $email = $_POST['email'];
+            $password = $_POST['password'];
+
+            $database = new Database();
+            $db = $database->getConnection();
+            $userRepo = new UserRepository($db);
+
+            $user = $userRepo->findByEmail($email);
+
+            if ($user && password_verify($password, $user['password'])) {
+                
+                session_start();
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_role'] = $user['role']; 
+
+                 header("Location: index.php?action=dashboard");
+                exit();
+            } else {
+                 header("Location: index.php?action=login&error=invalid_credentials");
+                exit();
+            }
+        }
+    }
+
+     public function logout() {
+        session_start();
+        session_unset(); 
+        session_destroy(); 
+        header("Location: index.php?action=login");
+        exit();
+    }
+}
+?>
+</file>
+
+<file path="src/Entity/Batch.php">
+<?php
+namespace PharmaFEFO\Entity;
+
+class Batch {
+    private int $id;
+    private int $productId;
+    private string $batchNumber;
+    private string $expirationDate;
+    private int $qtyAvailable;
+    private string $status;
+
+    public function getId(): int { return $this->id; }
+    public function getProductId(): int { return $this->productId; }
+    public function getBatchNumber(): string { return $this->batchNumber; }
+    public function getExpirationDate(): string { return $this->expirationDate; }
+    public function getQtyAvailable(): int { return $this->qtyAvailable; }
+    public function getStatus(): string { return $this->status; }
+
+   public function setStatus(string $status): void {
+        $this->status = $status;
+    }
+}
+?>
+</file>
+
+<file path="src/Repository/UserRepository.php">
+<?php
+namespace PharmaFEFO\Repository;
+
+class UserRepository {
+    private $conn;
+
+    public function __construct($db) {
+        $this->conn = $db;
+    }
+
+    public function findByEmail($email) {
+        $query = "SELECT * FROM users WHERE email = :email LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':email', $email);
+        $stmt->execute();
+      
+        return $stmt->fetch(\PDO::FETCH_ASSOC); 
+    }
+}
+?>
+</file>
+
+<file path="config/database.php">
+<?php
+namespace PharmaFEFO\Config;
+
+use PDO;
+use PDOException;
+
+class Database {
+    // Mnin t7et l-projet f serveur, bedel had l-ma3loumat b dyal l-hébergeur
+    private $host = "localhost";
+    private $db_name = "pharmafefo";
+    private $username = "root";
+    private $password = "";    
+    public $conn;
+
+    public function getConnection() {
+        $this->conn = null;
+
+        try {
+             $this->conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $this->db_name . ";charset=utf8mb4",
+                $this->username,
+                $this->password
+            );
+            
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            
+        } catch(PDOException $exception) {
+            // Message sécurisé l-production (Makibiyench l-khalal l-hackers)
+            die("Erreur de connexion à la base de données. Veuillez réessayer plus tard.");
+        }
+
+        return $this->conn;
+    }
+}
+?>
+</file>
+
+<file path="templates/add_batch.php">
+
+</file>
+
+<file path="README.md">
+# ⚕️ PharmaFEFO - Système de Gestion de Stock (Logique FEFO)
+
+PharmaFEFO est une application web de gestion d'inventaire conçue spécifiquement pour les pharmacies et les centres de santé. Elle implémente intelligemment l'algorithme **FEFO (First Expired, First Out)** pour garantir que les médicaments dont la date de péremption est la plus proche soient sortis en premier, réduisant ainsi les pertes et assurant la sécurité des patients.
+
+## ✨ Fonctionnalités Principales
+
+* **🔒 Sécurité & Authentification :** Connexion sécurisée avec hachage des mots de passe (`bcrypt`) et gestion des sessions.
+* **📊 Tableau de Bord Intelligent :** Vue globale sur les stocks avec un système d'alerte visuelle (Vert, Orange, Rouge) basé sur la criticité des dates de péremption.
+* **📥 Entrées de Stock :** Ajout de nouveaux lots de médicaments avec traçabilité complète.
+* **📤 Sorties Automatisées (FEFO) :** Lors d'une demande de sortie, l'algorithme sélectionne et déduit automatiquement les quantités des lots les plus proches de leur date d'expiration.
+* **📖 Traçabilité & Historique :** Un journal détaillé de tous les mouvements (Entrées/Sorties), incluant l'utilisateur, la date, la quantité, et les motifs (notes).
+
+## 🛠️ Stack Technique & Architecture
+
+Ce projet a été développé en respectant des standards stricts de développement :
+
+* **Back-end :** PHP (Vanilla), PDO (PHP Data Objects) pour la sécurité des requêtes préparées.
+* **Base de données :** MySQL.
+* **Front-end :** HTML5, Tailwind CSS (via CDN) pour une interface moderne et responsive, JavaScript (Vanilla) pour la gestion des fenêtres modales.
+* **Architecture :** **MVC (Modèle-Vue-Contrôleur)** pour une séparation claire des responsabilités et un code maintenable.
+
+## 📁 Structure du Projet
+
+```text
+pharmafefo/
+├── config/
+│   └── Database.php           # Connexion PDO à la base de données
+├── public/
+│   └── index.php              # Routeur principal (Point d'entrée unique)
+├── src/
+│   ├── Controller/            # Contrôleurs (Auth, Dashboard, Stock, History)
+│   ├── Entity/                # Entités du domaine
+│   └── Repository/            # Logique d'accès aux données (SQL)
+└── templates/                 # Vues HTML/PHP (login, dashboard, history)
+
+## 📊 ERD (Entity Relationship Diagram)
+![ERD PharmaFEFO]
+
+<img width="738" height="368" alt="image" src="https://github.com/user-attachments/assets/7c0adc66-1a67-45ad-bc6f-d23039435cde" />
+
+## 📐 UML
+![UML PharmaFEFO]
+
+<img width="321" height="346" alt="image" src="https://github.com/user-attachments/assets/d442b736-0716-41c2-b1d0-7f2fe0380236" />
+</file>
+
+<file path="src/Controller/DashboardController.php">
+<?php
+namespace PharmaFEFO\Controller;
+
+use PharmaFEFO\Config\Database;
+use PharmaFEFO\Repository\BatchRepository;
+use PharmaFEFO\Repository\ProductRepository; 
+class DashboardController {
+    public function index() {
+        $database = new Database();
+        $db = $database->getConnection();
+        
+        $batchRepo = new BatchRepository($db);
+        $productRepo = new ProductRepository($db); 
+
+        $rawLots = $batchRepo->getAllActiveLots();
+        $lots = [];
+
+        foreach ($rawLots as $lot) {
+            $days = $lot['days_to_expire'];
+            if ($days <= 30) {
+                $lot['criticality_level'] = 'RED';
+                $lot['criticality_label'] = 'Critique (< 1 mois)';
+            } elseif ($days <= 90) {
+                $lot['criticality_level'] = 'ORANGE';
+                $lot['criticality_label'] = 'Attention (< 3 mois)';
+            } else {
+                $lot['criticality_level'] = 'GREEN';
+                $lot['criticality_label'] = 'Bon';
+            }
+            $lots[] = $lot;
+        }
+
+         $products = $productRepo->getAllProducts();
+
+        require_once '../templates/dashboard.php';
+    }
+}
+?>
+</file>
+
+<file path="src/Controller/StockController.php">
+<?php
+namespace PharmaFEFO\Controller;
+
+use PharmaFEFO\Config\Database;
+use PharmaFEFO\Repository\BatchRepository;
+
+class StockController {
+    public function saveBatch() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $database = new Database();
+            $db = $database->getConnection();
+            $batchRepo = new BatchRepository($db);
+
+            $result = $batchRepo->addBatch(
+                $_POST['product_id'], 
+                $_POST['batch_number'], 
+                $_POST['quantity'], 
+                $_POST['expiration_date'],
+                $_SESSION['user_id']
+            );
+
+            header("Location: index.php?action=dashboard" . ($result ? "&success=entry" : "&error=entry"));
+            exit();
+        }
+    }
+
+   public function exitStock() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $database = new Database();
+            $db = $database->getConnection();
+            $batchRepo = new BatchRepository($db);
+
+            $note = !empty(trim($_POST['note'])) ? trim($_POST['note']) : 'Sortie automatique FEFO';
+
+             $result = $batchRepo->exitStockWithFEFO(
+                $_POST['product_id'], 
+                $_POST['quantity'],
+                $_SESSION['user_id'],
+                $note
+            );
+
+            header("Location: index.php?action=dashboard" . ($result ? "&success=exit" : "&error=insufficient_stock"));
+            exit();
+        }
+    }
+}
+?>
+</file>
+
+<file path="src/Repository/BatchRepository.php">
+<?php
+namespace PharmaFEFO\Repository;
+
+class BatchRepository {
+    private $conn;
+
+    public function __construct($db) {
+        $this->conn = $db;
+    }
+
+    public function getAllActiveLots() {
+        $query = "SELECT b.id, b.batch_number, b.expiration_date, b.qty_available, p.designation as product_name,
+                  DATEDIFF(b.expiration_date, CURDATE()) as days_to_expire
+                  FROM batches b
+                  JOIN products p ON b.product_id = p.id
+                  WHERE b.status = 'ACTIVE' AND b.qty_available > 0
+                  ORDER BY days_to_expire ASC";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function addBatch($product_id, $batch_number, $quantity, $expiration_date, $user_id) {
+        try {
+            $this->conn->beginTransaction();
+
+            $queryBatch = "INSERT INTO batches (product_id, batch_number, expiration_date, qty_received, qty_available, status) 
+                           VALUES (:product_id, :batch_number, :expiration_date, :quantity, :quantity, 'ACTIVE')";
+            $stmtBatch = $this->conn->prepare($queryBatch);
+            $stmtBatch->bindParam(':product_id', $product_id);
+            $stmtBatch->bindParam(':batch_number', $batch_number);
+            $stmtBatch->bindParam(':expiration_date', $expiration_date);
+            $stmtBatch->bindParam(':quantity', $quantity);
+            $stmtBatch->execute();
+
+            $newBatchId = $this->conn->lastInsertId();
+
+            $queryMovement = "INSERT INTO stock_movements (batch_id, user_id, type, quantity, note) 
+                              VALUES (:batch_id, :user_id, 'ENTRY', :quantity, 'Nouvelle entrée manuelle')";
+            $stmtMovement = $this->conn->prepare($queryMovement);
+            $stmtMovement->bindParam(':batch_id', $newBatchId);
+            $stmtMovement->bindParam(':user_id', $user_id);
+            $stmtMovement->bindParam(':quantity', $quantity);
+            $stmtMovement->execute();
+
+            $this->conn->commit();
+            return true;
+        } catch (\PDOException $e) {
+            $this->conn->rollBack();
+            return false;
+        }
+    }
+
+    public function exitStockWithFEFO($product_id, $quantity_requested, $user_id, $note) {
+        try {
+            $this->conn->beginTransaction();
+
+            $query = "SELECT id, qty_available FROM batches 
+                      WHERE product_id = :pid AND qty_available > 0 AND status = 'ACTIVE' 
+                      ORDER BY expiration_date ASC FOR UPDATE";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':pid', $product_id);
+            $stmt->execute();
+            $lots = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            $remaining_qty = $quantity_requested;
+
+            foreach ($lots as $lot) {
+                if ($remaining_qty <= 0) break;
+
+                $qty_taken = 0;
+                if ($lot['qty_available'] <= $remaining_qty) {
+                    $qty_taken = $lot['qty_available'];
+                    $remaining_qty -= $qty_taken;
+                    
+                    $updStmt = $this->conn->prepare("UPDATE batches SET qty_available = 0, status = 'EMPTY' WHERE id = :id");
+                    $updStmt->bindParam(':id', $lot['id']);
+                    $updStmt->execute();
+                } else {
+                    $qty_taken = $remaining_qty;
+                    $remaining_qty = 0;
+                    
+                    $updStmt = $this->conn->prepare("UPDATE batches SET qty_available = qty_available - :qty WHERE id = :id");
+                    $updStmt->bindParam(':qty', $qty_taken);
+                    $updStmt->bindParam(':id', $lot['id']);
+                    $updStmt->execute();
+                }
+
+                 $movStmt = $this->conn->prepare("INSERT INTO stock_movements (batch_id, user_id, type, quantity, note) 
+                                                 VALUES (:batch_id, :user_id, 'EXIT', :qty, :note)");
+                $movStmt->bindParam(':batch_id', $lot['id']);
+                $movStmt->bindParam(':user_id', $user_id);
+                $movStmt->bindParam(':qty', $qty_taken);
+                $movStmt->bindParam(':note', $note); 
+                $movStmt->execute();
+            }
+
+            if ($remaining_qty > 0) {
+                $this->conn->rollBack();
+                return false; 
+            }
+
+            $this->conn->commit();
+            return true;
+        } catch (\PDOException $e) {
+            $this->conn->rollBack();
+            return false;
+        }
+    }
+}
+?>
+</file>
+
+<file path="templates/dashboard.php">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>PharmaFEFO - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-gray-300 flex flex-col shadow-xl z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800">
+            <span class="text-xl font-bold text-white">⚕️ PharmaFEFO</span>
+        </div>
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/50">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                    <?= substr($_SESSION['user_name'] ?? 'U', 0, 1) ?>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-white"><?= htmlspecialchars($_SESSION['user_name'] ?? 'Utilisateur') ?></p>
+                    <p class="text-xs text-blue-400"><?= htmlspecialchars($_SESSION['user_role'] ?? '') ?></p>
+                </div>
+            </div>
+        </div>
+       <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="index.php?action=dashboard" class="block px-3 py-2 bg-slate-800 text-white rounded-md font-medium shadow-sm">Tableau de Bord</a>
+            <a href="index.php?action=history" class="block px-3 py-2 hover:bg-slate-800 text-gray-300 rounded-md transition-colors">Entrées & Sorties</a>
+        </nav>
+        <div class="p-4 border-t border-slate-800">
+            <a href="index.php?action=logout" class="block w-full text-center px-4 py-2 text-sm text-red-400 border border-red-900 rounded hover:bg-red-500 hover:text-white transition-colors">Se déconnecter</a>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col relative">
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 border-b z-10">
+            <h1 class="text-2xl font-semibold">Surveillance Stock</h1>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('modalSortie').classList.remove('hidden')" class="bg-orange-500 text-white px-4 py-2 rounded shadow hover:bg-orange-600 transition">- Sortie FEFO</button>
+                <button onclick="document.getElementById('modalEntree').classList.remove('hidden')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition">+ Entrée</button>
+            </div>
+        </header>
+
+        <div class="p-8 flex-1 overflow-y-auto">
+            <?php if(isset($_GET['success'])): ?><div class="bg-green-100 text-green-700 p-3 rounded mb-4 font-medium border border-green-200">Opération réussie !</div><?php endif; ?>
+            <?php if(isset($_GET['error'])): ?><div class="bg-red-100 text-red-700 p-3 rounded mb-4 font-medium border border-red-200">Erreur: Stock insuffisant ou problème.</div><?php endif; ?>
+
+            <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+                <thead class="bg-gray-50 text-gray-500 text-xs uppercase text-left border-b">
+                    <tr>
+                        <th class="px-6 py-3">Produit</th>
+                        <th class="px-6 py-3">Lot</th>
+                        <th class="px-6 py-3">Qté</th>
+                        <th class="px-6 py-3">Péremption</th>
+                        <th class="px-6 py-3">État</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-sm">
+                    <?php foreach ($lots as $lot): ?>
+                        <?php
+                        $bgColor = ''; $textColor = ''; $dotColor = '';
+                            if ($lot['criticality_level'] === 'RED') {
+                                $bgColor = 'bg-red-100'; $textColor = 'text-red-800'; $dotColor = 'bg-red-500';
+                            } elseif ($lot['criticality_level'] === 'ORANGE') {
+                                $bgColor = 'bg-orange-100'; $textColor = 'text-orange-800'; $dotColor = 'bg-orange-500';
+                            } else {
+                                $bgColor = 'bg-green-100'; $textColor = 'text-green-800'; $dotColor = 'bg-green-500';
+                            }
+                        ?>
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 font-medium text-gray-900"><?= htmlspecialchars($lot['product_name']) ?></td>
+                            <td class="px-6 py-4 text-gray-500"><?= htmlspecialchars($lot['batch_number']) ?></td>
+                            <td class="px-6 py-4 font-bold text-gray-900"><?= htmlspecialchars($lot['qty_available']) ?></td>
+                            <td class="px-6 py-4 font-semibold text-gray-900"><?= date('d/m/Y', strtotime($lot['expiration_date'])) ?></td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $bgColor ?> <?= $textColor ?>">
+                                    <span class="w-1.5 h-1.5 <?= $dotColor ?> rounded-full mr-1.5"></span>
+                                    <?= htmlspecialchars($lot['criticality_label']) ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="modalEntree" class="hidden absolute inset-0 bg-black/50 flex justify-center items-center z-50 backdrop-blur-sm">
+            <form action="index.php?action=save_batch" method="POST" class="bg-white p-6 rounded-lg shadow-xl w-96">
+                <h3 class="text-lg font-bold mb-4">Nouvelle Entrée</h3>
+                <select name="product_id" class="w-full border p-2 mb-3 rounded focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    <option value="">Sélectionnez un médicament...</option>
+                    <?php foreach ($products as $product): ?>
+                        <option value="<?= htmlspecialchars($product['id']) ?>">
+                            <?= htmlspecialchars($product['designation']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="text" name="batch_number" placeholder="Num Lot" class="w-full border p-2 mb-3 rounded focus:ring-2 focus:ring-blue-500 outline-none" required>
+                <input type="number" name="quantity" placeholder="Quantité" min="1" class="w-full border p-2 mb-3 rounded focus:ring-2 focus:ring-blue-500 outline-none" required>
+                <input type="date" name="expiration_date" class="w-full border p-2 mb-4 rounded focus:ring-2 focus:ring-blue-500 outline-none" required>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('modalEntree').classList.add('hidden')" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded transition">Annuler</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="modalSortie" class="hidden absolute inset-0 bg-black/50 flex justify-center items-center z-50 backdrop-blur-sm">
+            <form action="index.php?action=exit_stock" method="POST" class="bg-white p-6 rounded-lg shadow-xl w-96">
+                <h3 class="text-lg font-bold mb-4">Sortie FEFO</h3>
+                <select name="product_id" class="w-full border p-2 mb-3 rounded focus:ring-2 focus:ring-orange-500 outline-none" required>
+                    <option value="">Sélectionnez un médicament...</option>
+                    <?php foreach ($products as $product): ?>
+                        <option value="<?= htmlspecialchars($product['id']) ?>">
+                            <?= htmlspecialchars($product['designation']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="number" name="quantity" placeholder="Quantité à sortir" min="1" class="w-full border p-2 mb-3 rounded focus:ring-2 focus:ring-orange-500 outline-none" required>
+                <input type="text" name="note" placeholder="Motif (ex: Vente, Ordonnance...)" class="w-full border p-2 mb-4 rounded focus:ring-2 focus:ring-orange-500 outline-none">
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('modalSortie').classList.add('hidden')" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded transition">Annuler</button>
+                    <button type="submit" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded transition">Valider Sortie</button>
+                </div>
+            </form>
+        </div>
+    </main>
+</body>
+</html>
+</file>
+
+<file path="public/index.php">
+<?php
+session_start(); 
+
+require_once '../config/Database.php';
+require_once '../src/Repository/UserRepository.php';
+require_once '../src/Repository/BatchRepository.php';
+require_once '../src/Repository/ProductRepository.php';
+require_once '../src/Controller/AuthController.php';
+require_once '../src/Controller/DashboardController.php';
+require_once '../src/Controller/StockController.php';
+require_once '../src/Repository/MovementRepository.php';
+require_once '../src/Controller/HistoryController.php';
+
+
+use PharmaFEFO\Controller\HistoryController;
+use PharmaFEFO\Controller\AuthController;
+use PharmaFEFO\Controller\DashboardController;
+use PharmaFEFO\Controller\StockController;
+
+$action = isset($_GET['action']) ? $_GET['action'] : 'dashboard';
+
+if (!isset($_SESSION['user_id']) && $action !== 'login' && $action !== 'login_process') {
+    header("Location: index.php?action=login");
+    exit();
+}
+
+switch ($action) {
+    case 'login':
+        require_once '../templates/login.php';
+        break;
+    case 'login_process':
+        $controller = new AuthController();
+        $controller->loginProcess();
+        break;
+    case 'logout':
+        $controller = new AuthController();
+        $controller->logout();
+        break;
+    case 'dashboard':
+        $controller = new DashboardController();
+        $controller->index();
+        break;
+    case 'save_batch':
+        $controller = new StockController();
+        $controller->saveBatch();
+        break;
+    case 'exit_stock':
+        $controller = new StockController();
+        $controller->exitStock();
+        break;
+     
+    case 'history':
+        $controller = new HistoryController();
+        $controller->index();
+        break;
+    default:
+        echo "404 - Page non trouvée";
+        break;
+}
+?>
+</file>
+
+</files>

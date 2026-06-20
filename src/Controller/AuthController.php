@@ -22,7 +22,7 @@ class AuthController {
                 session_start();
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['name'];
-                $_SESSION['user_role'] = $user['role']; // Matalan: 'PHARMACIEN' wla 'PREPARATEUR'
+                $_SESSION['user_role'] = $user['role']; 
 
                  header("Location: index.php?action=dashboard");
                 exit();

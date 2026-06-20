@@ -1,6 +1,5 @@
 -- Création de la base de données
-CREATE DATABASE IF NOT EXISTS pharmafefo;
-USE pharmafefo;
+
 
 -- 1. Table USERS (Utilisateurs)
 CREATE TABLE users (
