@@ -1,3 +1,4 @@
+le lien de brief host : pharmafefo.infinityfree.io
 # ⚕️ PharmaFEFO - Système de Gestion de Stock (Logique FEFO)
 
 PharmaFEFO est une application web de gestion d'inventaire conçue spécifiquement pour les pharmacies et les centres de santé. Elle implémente intelligemment l'algorithme **FEFO (First Expired, First Out)** pour garantir que les médicaments dont la date de péremption est la plus proche soient sortis en premier, réduisant ainsi les pertes et assurant la sécurité des patients.
